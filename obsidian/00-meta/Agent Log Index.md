@@ -10,5 +10,6 @@ Every substantial piece of work on this repository, newest first. See
 
 | date | entry | headline |
 |---|---|---|
+| 2026-10-25 | [[2026-10-25 Preserving wiring blocks during recycling]] | Retain wiring-block values, ports, repetition and occurrences through graph conversion and graph passes. |
 | 2026-10-25 | [[2026-10-25 Positional Linear Indices]] | Values and gradients for square, repeated and interleaved targets |
 | 2026-10-25 | [[2026-10-25 Pass-through Wire Reconstruction]] | Producer-only identity holds and the information lost by wiring blocks |

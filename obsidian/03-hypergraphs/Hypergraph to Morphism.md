@@ -74,11 +74,29 @@ Every validator passes with it in place.
 
 ## The rules
 
-> [!warning] `HypergraphObject(...) is not in list` reports a missing branch input
-> Some node is required on the right of a branch and absent on its left. Check the
-> graph and the branch construction. A splice may need its containers rebuilt through
-> `leaf_splicing.rescope`, per [[Leaf Splicing]]. Valid morphisms with pass-through
-> blocks have also exposed the scheduling defects described below.
+### Wiring blocks keep their values and occurrences
+
+Block construction retains explicit output connections for pass-through and
+copied outputs, as described in [[Hypergraphs]]. A block therefore cannot be
+selected as the producer of its own input. Consecutive wiring blocks have an
+order in the graph, including blocks whose repetition changes the meaning of
+their wiring.
+
+An empty `ComposedBranch` still applies the mapping from its requested inputs
+to its requested outputs. That mapping can swap, copy, or discard wires.
+Treating an empty stack as an identity loses the mapping. An explicitly empty
+input tuple is also an interface and does not request an inferred domain.
+
+The branch construction places subgraphs whose outputs have no consumers,
+including a block followed by a complete discard. The final rearrangement
+projects their unused results away. Rearrangement normalisation preserves
+each block even when its body is an identity.
+
+> [!warning] A missing wire requires inspecting both the graph and the reconstruction
+> Some node is required on the right of a branch and nothing on the left supplies it.
+> Check whether a rewrite left a container's `dom` or `cod` stale, and whether the
+> branch construction held or emitted the wrong node. Public block constructors
+> have produced valid graphs that exposed reconstruction failures.
 
 > [!warning] Pass-through wires and dropped wires used to break the branch walk
 > A wire a block passes through untouched keeps its node, so the node sits in that graph's

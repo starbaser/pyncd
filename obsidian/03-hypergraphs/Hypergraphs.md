@@ -81,6 +81,24 @@ morphism. No pass ever read an annotation back out of a graph, because
 `hypergraph_to_morphism` rebuilds the nesting from the wiring alone. The annotation slot
 was removed on 2026-09-01, collapsing the three classes into `Multigraph`.
 
+## Block outputs retain their positions
+
+A block and its body share their input and output wire identities. An output that
+passes an input through, or repeats another output, receives a fresh wire through
+an identity rearrangement root inside the body. The block therefore has an actual
+producer for each output position. Two consecutive wiring blocks have distinct
+outputs, so their order is recoverable from the graph.
+
+Ordinary rearrangements still become wire aliases. A rearrangement with explicitly
+distinct output wires remains a `HypergraphRoot`. Functors and crawlers handle that
+root structurally. Quantisation follows its mapping without inserting arithmetic.
+
+A repeated block needs independent input positions even when two initial values
+arrive on the same wire. Conversion places an identity root before that block to
+separate the positions. The body then uses independent wires on later iterations.
+The identity belongs outside the repeated body because the initial equality need
+not hold after the first iteration.
+
 ## Traversal
 
 ```python
@@ -97,11 +115,10 @@ hg.flat_subgraphs(g, remove_blocks=True)
 
 ## Diagnostics
 
-> [!warning] A requested wire is absent on the left of a branch
-> `ValueError: HypergraphObject(...) is not in list` can report an invalid splice or
-> a conversion defect. Check the splice and each container's `dom` and `cod`. Valid
-> consecutive blocks with pass-through wires also exposed an incorrect identity hold
-> in the branch construction, per [[Hypergraph to Morphism]].
+> [!warning] A missing wire can indicate a rewrite or reconstruction defect
+> Some node is required on the right of a branch and nothing on the left supplies it.
+> Inspect the graph and the selected branches before attributing the failure to a
+> splice. Valid block compositions have also exposed reconstruction defects.
 > `leaf_splicing.rescope` exists because a loop that gains a domain wire needs the
 > containers around it rebuilt, and nothing else works that out.
 

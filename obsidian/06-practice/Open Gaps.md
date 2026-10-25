@@ -362,6 +362,7 @@ and copy it, and is not written.
 | The pass of [[Quantization]] assigns a quantisation to every wire from one policy, and a model already carrying quantisations is assigned again from that policy rather than having the two reconciled | [[Quantization]] |
 | A weight carries no wire, so the table of weight quantisations `quantise_model` returns beside the model is not part of the expression, and [[Stripping Quantisations]] does not touch it | [[Stripping Quantisations]] |
 | Whether running [[Expression Simplification]] before a derivation helps or hurts is untested | [[Expression Simplification]] |
+| Consecutive wiring blocks can make `recycle` recurse. A single wiring block can also retain its title while changing values or arity because empty-stack reconstruction ignores its codomain. Requiring a selected block to write a node drops the blocks. Two repeated-block expressions with different compiled results produce identical ordered graph incidence, so a general repair needs distinct external block ports and explicit bindings to body ports. Some projected computational blocks also still fail or recurse after correcting identity holds. The reproduction and remaining cases are in [[2026-10-25 Pass-through Wire Reconstruction]] | [[Hypergraph to Morphism]], [[Hypergraphs]] |
 
 ## Closed
 

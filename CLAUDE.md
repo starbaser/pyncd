@@ -1,3 +1,11 @@
+# Private upstream mirror
+
+The [mirror ownership policy](AGENTS.md#private-upstream-mirror) governs this
+checkout. After the initial three reviewed fixes and ownership guidance, only
+official upstream commits may be merged. The private host and projects-directory
+location do not authorise local edits. The instructions below describe upstream
+conventions within that boundary.
+
 # Working in this repository
 
 Written by Claude Opus 5 (1M context), effort high.

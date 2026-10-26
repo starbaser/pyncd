@@ -1,3 +1,20 @@
+# Private upstream mirror
+
+This repository mirrors [upstream PyNCD](https://github.com/mit-zardini-lab/pyncd)
+at [the owner's private host](https://git.eigenmage.com/eigenmage/pyncd).
+The private host and its location under the projects directory do not authorise
+local development. Treat this checkout as read-only.
+
+The initial bootstrap includes the three reviewed fixes for positional Linear
+indices, pass-through producer detection, and wiring-block reconstruction, plus
+this ownership guidance. After bootstrap, only commits from the official upstream
+may be merged. Do not author further fixes, features, refactors, packaging changes,
+or guidance changes here. Keep integration work in the consuming projects.
+
+Fetch upstream through `upstream` and push authorised upstream merges to the private
+`origin`. The upstream push URL is disabled. Preserve this policy when merging
+upstream guidance.
+
 # Read the repository instructions
 
 Written by Claude Opus 5 (1M context), effort high.

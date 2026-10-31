@@ -554,8 +554,10 @@ def deep_reconstruct(target, func):
 class UIDEquipped(Protocol):
     '''A term that carries an identity: a `UTerm`, or a term such as `FreeNumeric`
     that declares its own `uid` field. Identity is structural, so a rewrite keyed on
-    uids addresses both alike.'''
-    uid: UID
+    uids addresses both alike. The identity is read-only here, so a term whose uid is
+    typed to itself, `UID[FreeNumeric]`, satisfies the protocol.'''
+    @property
+    def uid(self) -> UID: ...
 @dataclass
 class EqualityClass[T: UIDEquipped]:
     '''A declaration that every uid in `bucket` denotes the term `canonical`.

@@ -52,7 +52,8 @@ python run_server.py     # here
 npm run server           # in tsncd, which is `node src/run_server.ts`
 ```
 
-Only one of them may hold port 8765 at a time. The node server binds `127.0.0.1` and `::1`
+Only one of them may hold a given address and port at a time. With the default
+`localhost` host, the node server binds `127.0.0.1` and `::1`
 separately, because `localhost` resolves to either and node's `listen` takes one address
 where Python's `websockets.serve` takes every address the name resolves to. The choice is
 otherwise a matter of which runtime is already installed. The node server relays large
@@ -63,6 +64,34 @@ measures.
 send and disconnects. A `DiagramClient`, meaning a browser tab, stays connected for as long
 as the tab is open. Several diagram clients may be connected at once, and they all display
 the same thing.
+
+## Configure the relay address
+
+The relay and Python clients read `HOST` and `PORT` when their process starts.
+The defaults are `localhost` and `8765`; an empty value uses the default.
+`PORT` must be a decimal integer from 1 to 65535. IPv6 hosts are written without
+brackets in `HOST` and bracketed in WebSocket URLs.
+
+```sh
+HOST=0.0.0.0 PORT=8765 npm run server
+HOST=0.0.0.0 PORT=8765 python run_server.py
+```
+
+Run one relay. Give Python clients the relay's reachable host, for example
+`HOST=192.168.1.20 PORT=8765 python example.py`.
+
+TSNCD reads the same variables at build time or when `npm run dev` starts. They
+configure the browser's relay connection. With `HOST` unset or a wildcard address
+(`0.0.0.0` or `::`), the browser uses the page's hostname. An explicit host overrides
+that hostname. HTTP pages use `ws`; HTTPS pages use `wss` and need a TLS endpoint.
+Restart the dev server or rebuild after changing the variables. Only these two
+values are included in the bundle.
+
+The HTTP dev server has its own existing webpack options, for example
+`PORT=8765 npm run dev -- --host 0.0.0.0 --port 3000 --no-open`.
+`PORT` here selects the relay; `--port` selects the page server. Both ports must be
+reachable from a remote browser. The capture command also reads `HOST` and `PORT`;
+its existing `--server URL` option overrides them.
 
 ## The messages
 

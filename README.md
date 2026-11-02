@@ -62,6 +62,10 @@ These utilities build on the core data structure. They feed into a "web" of tool
  - For diagrammatic visualization, the [`tsncd`](https://github.com/mit-zardini-lab/tsncd) package is required. We run `python run_server.py` (requires `pip install websockets`) in an independent terminal. `tsncd` carries the same relay under `npm run server`, which needs no Python package and answers the same messages. Either will do. Only one of them may hold port 8765. When the server is running, the browser connects on refresh. As in `example_notebooks/Transformer.ipynb`, we connect from Python, updating the data in the server. The wire format between the two packages is documented in
 [`obsidian/05-backends/Diagram Wire Format.md`](obsidian/05-backends/Diagram%20Wire%20Format.md).
 
+The relay and Python clients read `HOST` and `PORT`, with defaults `localhost`
+and `8765`. See [relay configuration](obsidian/05-backends/Diagram%20Wire%20Format.md#configure-the-relay-address)
+for remote browser access and examples.
+
 # Diagrams in the notebook
 
 `send_morphism` puts a diagram in the browser window, and nothing of it survives

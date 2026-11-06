@@ -175,3 +175,11 @@ repository root, which `.vscode/settings.json` arranges.
 
  - We check the repository with `python validate_repository.py` and
 `python validations/run_validations.py --all`.
+
+ - `torch_compile/bcast.py`'s `weave_displacement` gives an explicit-dimension Torch rule the
+dimension its weave selects: the leading axes are the batch, the first mode starts the tiled
+section, and each further mode moves the dimension one step further from the end. Its `match`
+arms are instance patterns (`cat.Axis()`, `cat.WeaveMode()`); a dotted name alone is a value
+pattern that compares the entry with the class object and never holds, which once left every
+such rule at the last dimension. `torch_compile/validate_weave_displacement.py` checks the
+walk at each position.

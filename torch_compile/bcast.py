@@ -60,14 +60,16 @@ def weave_displacement(target: cat.Weave) -> None | int:
     section: Literal['left'] | Literal['center'] | Literal['right'] = 'left'
     dim = -1
     for axis_weave in target._shape:
+        # Instance patterns: a dotted name alone is a value pattern comparing the
+        # shape entry with the class object itself, which never holds.
         match section, axis_weave:
-            case 'left', cat.Axis:
+            case 'left', cat.Axis():
                 section = 'center'
-            case 'center', cat.WeaveMode:
+            case 'center', cat.WeaveMode():
                 section = 'right'
-            case 'right', cat.WeaveMode:
+            case 'right', cat.WeaveMode():
                 dim -= 1
-            case 'right', cat.Axis:
+            case 'right', cat.Axis():
                 return None
     return dim
 

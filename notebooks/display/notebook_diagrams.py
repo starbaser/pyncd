@@ -236,6 +236,7 @@ import quantization.algebra.strip_quantisations as strip_quantisations
 import term_utilities.term_utilities as tutil
 import websocket_transfer.auxiliary_information as auxiliary_information
 import websocket_transfer.capture as capture
+import websocket_transfer.bundle as bundle
 import websocket_transfer.headless as headless
 import websocket_transfer.localise_descriptions as localise_descriptions
 import websocket_transfer.send_morphism as sending
@@ -259,8 +260,6 @@ import notebooks.display.notebook_listings as notebook_listings
 import notebooks.display.remember_drawn_blocks as remember_drawn_blocks
 import notebooks.display.tape_naming as tape_naming
 import notebooks.display.tape_presentation as tape_presentation
-
-TSNCD_DIST_FALLBACK = '../tsncd/dist'
 
 ColorMode = wst.ColorMode
 DisplayMode = wst.DisplayMode
@@ -448,12 +447,8 @@ _headless_runs = True
 
 
 def tsncd_dist() -> str:
-    '''The built tsncd bundle: the locations `headless.find_dist` searches, then a
-    tsncd checkout beside the folder this repository stands in.'''
-    try:
-        return headless.find_dist()
-    except FileNotFoundError:
-        return headless.find_dist(TSNCD_DIST_FALLBACK)
+    '''The built tsncd page, per `websocket_transfer.bundle.locate_bundle`.'''
+    return str(bundle.locate_bundle())
 
 
 def _loop_on_its_own_thread() -> asyncio.AbstractEventLoop:

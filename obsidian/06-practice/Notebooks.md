@@ -84,7 +84,7 @@ cached pass of GLM-5.3 is in `notebooks/caching/CachedGLM53/`, per
   `jupyter.notebookFileRoot`. Launching `jupyter lab` from inside the folder will not
   resolve the imports, and `notebooks/fix_notebook_dir.py` does the same job outside VS
   Code.
-- **Diagrams need a browser**: the headless renderer, or `python run_server.py` plus a
+- **Diagrams need a browser**: the headless renderer, or `pyncd-server` plus a
   `tsncd` page open. `tsncd` carries the same server under `npm run server`, and only one
   of the two may hold port 8765. Every notebook under `notebooks/` and under
   `example_notebooks/` draws through `notebooks/display/notebook_diagrams.py`. A notebook builds one `DiagramSettings` at

@@ -289,7 +289,7 @@ activation is rounded. The policy states that path by naming BF16 as its
 released modules compute on BF16 tensors, and the softmax returns BF16 through
 `.type_as(x)`. The correction bias is FP32, so the addition of the bias promotes to FP32
 the copy of the scores that chooses the groups and the experts, and the gates are read
-from the BF16 copy. The RMSNorm of PyTorch 2.4.1, which `requirements.txt` pins, is a
+from the BF16 copy. The RMSNorm of PyTorch 2.4.1 is a
 chain of BF16 tensor operations. The two caches of the cached pass hold BF16, which
 `Caching.Caching` carries through the `moved` rule. Each pass holds casts between BF16
 and FP32 alone, in the rotary embedding and the gate.

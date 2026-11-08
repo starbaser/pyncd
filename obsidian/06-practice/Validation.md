@@ -52,7 +52,7 @@ It compiles both forms with [[Torch Compile]] and runs them on the same random i
 that [[Expression Simplification]] is checked against arithmetic rather than against a
 listing. There are three cases with an independently known answer: absorbing a node undoes
 `expand_to_nodes`, a diagonal followed by a sum is a contraction, and a chain of contractions
-is left alone. It needs `torch`, which `requirements.txt` does not list, and without `torch`
+is left alone. It needs `torch`, which the `torch` extra holds, and without `torch`
 the script reports the fact and exits 0.
 
 ## The backward check

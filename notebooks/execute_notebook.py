@@ -19,10 +19,14 @@ running this script is used, because that interpreter is one that runs the packa
 from __future__ import annotations
 
 import argparse
+import atexit
+import json
 import os
 import pathlib
 import re
+import shutil
 import sys
+import tempfile
 import time
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -31,8 +35,11 @@ ANSI_ESCAPE = re.compile(r'\x1b\[[0-9;]*m')
 
 
 def kernelspec_for(interpreter: str) -> str:
-    '''The kernelspec whose command launches `interpreter`, or `python3` when none
-    does.'''
+    '''The kernelspec whose command launches `interpreter`, written for this run
+    when none does. A user-level `python3` kernelspec shadows the one of the
+    environment running this script, and names an interpreter without this
+    repository's dependencies, so a notebook runs under the interpreter the
+    runner runs under.'''
     import jupyter_client.kernelspec as kernelspec
 
     wanted = pathlib.Path(interpreter).resolve()
@@ -40,7 +47,25 @@ def kernelspec_for(interpreter: str) -> str:
         command = found['spec'].get('argv') or []
         if command and pathlib.Path(command[0]).resolve() == wanted:
             return name
-    return 'python3'
+    return register_kernelspec_for(wanted)
+
+
+def register_kernelspec_for(interpreter: pathlib.Path) -> str:
+    '''A kernelspec launching `interpreter`, written under a Jupyter path that
+    lives as long as this process.'''
+    directory = pathlib.Path(tempfile.mkdtemp(prefix='pyncd-kernelspec-'))
+    atexit.register(shutil.rmtree, directory, ignore_errors=True)
+    name = 'pyncd-interpreter'
+    spec = directory / 'kernels' / name
+    spec.mkdir(parents=True)
+    (spec / 'kernel.json').write_text(json.dumps({
+        'argv': [str(interpreter), '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
+        'display_name': f'Python ({interpreter})',
+        'language': 'python',
+    }), encoding='utf-8')
+    os.environ['JUPYTER_PATH'] = os.pathsep.join(
+        path for path in (str(directory), os.environ.get('JUPYTER_PATH')) if path)
+    return name
 
 
 def strip_ansi(text: str) -> str:

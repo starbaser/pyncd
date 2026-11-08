@@ -55,7 +55,7 @@ as JSON, and [[Diagram Wire Format]] states the contract. That note is mirrored 
 
 A server sits in the middle because neither end has a stable lifetime: cells run and finish,
 tabs open and reload. The server holds the most recent term, which is what makes a browser
-refresh work. Start it as `python run_server.py` here or as `npm run server` in `tsncd`.
+refresh work. Start it as `pyncd-server` here or as `npm run server` in `tsncd`.
 The two answer identically, and only one of them may hold port 8765.
 
 ```
@@ -201,11 +201,13 @@ together. A halo is drawn in tsncd's `DiagramTheme.highlightHaloColor`, a blue i
 theme, since the user reported on 2026-09-26 that the black halo of the light theme,
 drawn in the colour of the wire it surrounds, did not look good.
 
-Headless capture needs `pip install -r requirements-headless.txt`,
-`playwright install chromium`, and a built `tsncd` bundle from `npm run build`.
-`headless.find_dist` reads `TSNCD_DIST` first, then the sibling checkouts
-`tsncd/dist` beside the checkout. A bundle built from a source tree newer than `dist/` is
-the usual cause of a `TermDirectory` miss.
+Headless capture needs the `headless` extra, `playwright install chromium`, and the
+built `tsncd` page. An installed wheel carries the page under
+`websocket_transfer/tsncd_bundle/`, written by `hatch_build.py` from the tsncd
+revision `pyproject.toml` pins, and a checkout names one through `TSNCD_DIST`.
+`websocket_transfer.bundle.locate_bundle` reads an explicit path first, then
+`TSNCD_DIST`, then the packaged page. A page built from a source tree older than the
+term's classes is the usual cause of a `TermDirectory` miss.
 
 **Prefer the open page for an inline capture, over a browser started here.** A capture
 through the running server costs one round trip and needs nothing installed, and the page

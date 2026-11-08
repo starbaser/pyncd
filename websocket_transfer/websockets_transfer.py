@@ -8,7 +8,9 @@ from collections.abc import Mapping
 from typing import TypedDict, Literal, Any, NotRequired
 import json
 import os
+import pathlib
 import data_transfer.term_json as dtj
+import websocket_transfer.page_serving as page_serving
 import data_structure.Term as fd
 import random
 
@@ -34,8 +36,9 @@ The wire format is written up in `obsidian/05-backends/Diagram Wire Format.md`,
 mirrored at `tsncd/PROTOCOL.md`. Keep the two in step.
 '''
 
-def _server_port_from_environment() -> int:
-    port_text = os.environ.get('PORT') or '8765'
+def server_port_from_text(port_text: str) -> int:
+    '''The port `port_text` names, where an empty text names the default.'''
+    port_text = port_text or '8765'
     if not port_text.isascii() or not port_text.isdecimal():
         raise ValueError(f'PORT must be an integer from 1 to 65535: {port_text!r}')
     try:
@@ -48,9 +51,19 @@ def _server_port_from_environment() -> int:
 
 
 SERVER_HOST = os.environ.get('HOST') or 'localhost'
-SERVER_PORT = _server_port_from_environment()
-SERVER_URI = f'ws://[{SERVER_HOST}]:{SERVER_PORT}' if ':' in SERVER_HOST else (
-    f'ws://{SERVER_HOST}:{SERVER_PORT}')
+SERVER_PORT = server_port_from_text(os.environ.get('PORT') or '')
+
+
+def server_uri(host: str, port: int) -> str:
+    return f'ws://[{host}]:{port}' if ':' in host else f'ws://{host}:{port}'
+
+
+def page_uri(host: str, port: int) -> str:
+    '''The HTTP address of the page `pyncd-server` serves beside its relay.'''
+    return f'http://[{host}]:{port}/' if ':' in host else f'http://{host}:{port}/'
+
+
+SERVER_URI = server_uri(SERVER_HOST, SERVER_PORT)
 
 '''
 A captured PNG runs to several megabytes once base64'd, and `websockets`
@@ -585,11 +598,22 @@ class DataServer:
             # for client in self.connected_clients:
             #     await client.send(message)
 
-    async def main(self) -> None:
+    async def main(
+        self,
+        host: str = SERVER_HOST,
+        port: int = SERVER_PORT,
+        page: pathlib.Path | None = None,
+    ) -> None:
+        '''Relay on `host` and `port`, and serve the tsncd page in `page` from the same
+        port, per `websocket_transfer/page_serving.py`, where one is given.'''
         async with websockets.serve(
-                self.handler, SERVER_HOST, SERVER_PORT,
-                max_size=MAX_MESSAGE_BYTES):
-            print(f"Server started at {SERVER_URI}")
+                self.handler, host, port,
+                max_size=MAX_MESSAGE_BYTES,
+                process_request=(
+                    None if page is None else page_serving.make_request_processor(page))):
+            print(f"Server started at {server_uri(host, port)}")
+            if page is not None:
+                print(f"Page served at {page_uri(host, port)} from {page}")
             await self.worker()
 
 @dataclass
@@ -659,9 +683,9 @@ class DataClient:
                 # about to use, so a swallowed failure would surface later as a
                 # confusing `None`.
                 raise CaptureError(
-                    'Capture failed. Check that `python run_server.py` is '
+                    'Capture failed. Check that `pyncd-server` is '
                     f'running and a tsncd page is open. Cause: {e!r}') from e
-            print(f"Be sure to execute `python run_server.py` before running this client. An error occurred: {e}")
+            print(f"Be sure to execute `pyncd-server` before running this client. An error occurred: {e}")
 
     async def request_render(self, websocket) -> RenderResult:
         '''

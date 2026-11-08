@@ -1011,7 +1011,44 @@ blocks with pass-through wires have also exposed a conversion defect.
 - Python 3.13 generics, written `def f[T](...)`, and structural `match` are used
   throughout.
 
+# The package installs from GitHub and carries the tsncd page
+
+`pyproject.toml` builds the wheel with hatchling and declares `pyncd-server`, the
+command of `websocket_transfer/serve.py`, which runs `DataServer` and serves the
+tsncd page from the same port through `websocket_transfer/page_serving.py`. The
+served `index.html` carries the `tsncd-relay` marker that has the page connect to
+its own origin, which `Diagram Wire Format.md` states under *Configure the relay
+address*. `websockets` is the one base dependency, and the `torch`, `diagrams` and
+`headless` extras hold the rest. `uv.lock` is committed and `uv sync --extra
+diagrams --extra headless` makes a development environment.
+
+`hatch_build.py` is the build hook that writes `websocket_transfer/tsncd_bundle/`
+into a wheel. It copies the page `PYNCD_TSNCD_BUNDLE` names, which the flake sets to
+tsncd's own Nix output, and otherwise clones the tsncd revision `[tool.pyncd.tsncd]`
+pins and builds the page with npm. It writes `bundle.json` beside the page, naming
+the repository and revision, and `pyncd-server` prints them. An editable install
+writes no page, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel without one.
+`websocket_transfer/bundle.py` locates the page at run time: an explicit path, then
+`TSNCD_DIST`, then the packaged page. Every reader of the page goes through it, and
+nothing looks for a tsncd checkout beside this repository. Moving the pin means
+editing the revision in `pyproject.toml` and running `nix flake update tsncd`, so the
+wheel built with npm and the wheel built by the flake carry the same page.
+
+`flake.nix` follows the uv2nix pattern of Eigenpy. `packages.env` is the environment
+with the `diagrams` extra, `apps.default` runs `pyncd-server` from it, and the
+development shell sets `TSNCD_DIST` to the page tsncd's flake builds.
+`websocket_transfer/validate_page_serving.py` checks the served page, the locator's
+order and the typewriter escaping tsncd mirrors.
+
 # Running the checks
+
+The checks run under an interpreter holding the package's dependencies.
+`nix build .#dev --out-link result-dev` builds the environment with the `diagrams`
+extra and the `dev` group, and `result-dev/bin/python` then runs the commands
+below. A notebook runs under a kernel the executor writes for that interpreter, so a
+user-level `python3` kernelspec does not stand in. `nix build .#check --out-link
+result-check` adds the `torch` extra, with nixpkgs' prebuilt torch, for the
+validators that import `torch` and `einops`.
 
 Validate a change by passing the modified files to the runner.
 `validations/run_validations.py` works out which validations depend on those files and
@@ -1128,7 +1165,7 @@ under `example_notebooks/`. Their kernels must start at the repository root.
 
 Diagrams are drawn by the headless renderer, or by a
 [tsncd](https://github.com/mit-zardini-lab/tsncd) page, which requires an open browser tab
-and a server on port 8765. Either `python run_server.py` here or `npm run server` in
+and a server on port 8765. Either `pyncd-server` here or `npm run server` in
 `tsncd` provides that server, and only one of them may hold the port. You cannot see the
 diagrams, so use `agent_display` instead.
 

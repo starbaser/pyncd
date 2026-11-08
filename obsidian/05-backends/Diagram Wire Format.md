@@ -48,8 +48,9 @@ notebook. The server is started once and left running.
 Two implementations answer identically, and either may be the one that is up:
 
 ```bash
-python run_server.py     # here
+pyncd-server             # here, which also serves the page the wheel carries
 npm run server           # in tsncd, which is `node src/run_server.ts`
+tsncd serve              # the installed tsncd package, which also serves the page
 ```
 
 Only one of them may hold a given address and port at a time. With the default
@@ -74,7 +75,7 @@ brackets in `HOST` and bracketed in WebSocket URLs.
 
 ```sh
 HOST=0.0.0.0 PORT=8765 npm run server
-HOST=0.0.0.0 PORT=8765 python run_server.py
+HOST=0.0.0.0 PORT=8765 pyncd-server
 ```
 
 Run one relay. Give Python clients the relay's reachable host, for example
@@ -92,6 +93,15 @@ The HTTP dev server has its own existing webpack options, for example
 `PORT` here selects the relay; `--port` selects the page server. Both ports must be
 reachable from a remote browser. The capture command also reads `HOST` and `PORT`;
 its existing `--server URL` option overrides them.
+
+A relay that serves the page itself, which `tsncd serve` and `pyncd-server` do,
+writes `<meta name="tsncd-relay" content="same-origin">` into the `head` of the
+`index.html` it serves. A page carrying that element connects to the relay at
+the page's own origin, `ws://` under `http:` and `wss://` under `https:`, and
+reads neither the compiled `HOST` nor the compiled `PORT`. A page served any
+other way carries no such element and connects as the paragraphs above state.
+tsncd's `src/data_transfer/page_serving.ts` and `websocket_transfer/page_serving.py`
+here write the element, and `diagram_protocol.page_server_uri` reads it.
 
 ## The messages
 
@@ -1129,7 +1139,7 @@ measured as the round trip of a 373 KiB frame across a loopback echo:
 
 | relay | throughput |
 |---|---|
-| Python `websockets`, in `run_server.py` | 34 MiB/s |
+| Python `websockets`, in `pyncd-server` | 34 MiB/s |
 | node `ws`, in `npm run server` | 447 MiB/s |
 | A raw loopback TCP socket, for reference | 1500-2500 MiB/s |
 

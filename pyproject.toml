@@ -4,18 +4,49 @@ version = "0.1.0"
 description = "Algebraic neural circuit diagrams and PyTorch compilation"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+# The relay and its clients, which `pyncd-server` and `websocket_transfer` need.
+dependencies = ["websockets>=15"]
+
+[project.scripts]
+pyncd-server = "websocket_transfer.serve:main"
 
 [project.optional-dependencies]
 torch = ["torch>=2.5", "einops>=0.8.1", "numpy>=2"]
 # notebooks/display imports IPython through ipykernel, which requirements.txt lists,
 # and pandas, which it imports and requirements.txt does not list.
-diagrams = ["websockets>=15", "ipykernel>=6.29.5", "pandas>=2"]
+diagrams = ["ipykernel>=6.29.5", "pandas>=2"]
 headless = ["playwright"]
+
+# What the validation runner needs to execute the notebooks.
+[dependency-groups]
+dev = [
+  "nbclient>=0.10", "nbformat>=5.10", "jupyter_client>=8", "ipykernel>=6.29.5",
+  "matplotlib>=3.10",
+  # hatch_build.py imports the build backend, and the import check imports it.
+  "hatchling>=1.33",
+]
+
+# torch comes from PyTorch's CPU index, so neither `uv sync` nor the flake
+# resolves the CUDA libraries the PyPI wheel carries beside it.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# The tsncd page the wheel carries, written by `hatch_build.py` from this revision.
+[tool.pyncd.tsncd]
+repository = "https://github.com/starbaser/tsncd.git"
+revision = "aea74ded88a6fa7272508f3620384391ce3fc131"
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
 packages = [

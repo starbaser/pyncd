@@ -57,15 +57,12 @@ VAULT_ROOT = REPOSITORY_ROOT / 'obsidian'
 
 # Folders holding no importable package code.
 SKIPPED_FOLDERS = {
-    '__pycache__', '.git', '.vscode', '.claude', 'node_modules',
-    'obsidian', 'outputs', '_guide',
+    '__pycache__', '.git', '.vscode', '.claude', 'node_modules', '.venv', 'dist',
+    'result', 'obsidian', 'outputs', '_guide',
 }
 
 # Modules that cannot be imported alongside the rest of the package.
-# `run_server` starts a server at import.
-UNIMPORTABLE_MODULES = {
-    'run_server',
-}
+UNIMPORTABLE_MODULES: set[str] = set()
 
 WIKI_LINK = re.compile(r'\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]')
 FRONTMATTER_CODE_PATHS = re.compile(r'(?m)^code:\s*(.+)$')

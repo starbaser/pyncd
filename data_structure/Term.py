@@ -158,6 +158,26 @@ class DynamicNameSettings(Term):
     absolute: bool = False
     typewriter: bool = False
     exponent_placement: ExponentPlacement = ExponentPlacement.SUPERSCRIPT
+
+
+TYPEWRITER_SPECIALS = set('\\{}$&#%_^~')
+TYPEWRITER_COMMANDS = {
+    '\\': '\\textbackslash{}',
+    '^': '\\textasciicircum{}',
+    '~': '\\textasciitilde{}',
+}
+
+
+def escape_typewriter(text: str) -> str:
+    '''`text` with every LaTeX special written as `\\texttt` prints it, so a
+    compiler-qualified name such as `module.Class[T]_1` is drawn as its source
+    reads. tsncd's `DynamicName.body_latex` escapes the same characters.'''
+    return ''.join(
+        TYPEWRITER_COMMANDS.get(character, '\\' + character)
+        if character in TYPEWRITER_SPECIALS else character
+        for character in text)
+
+
 @dataclass(frozen=True)
 class DynamicName(Term):
     '''A name for display: a body, an optional subscript, display settings, an
@@ -286,7 +306,7 @@ class DynamicName(Term):
         if self.settings is None:
             return body
         if self.settings.typewriter:
-            body = f'\\texttt{{{body.replace("_", chr(92) + "_")}}}'
+            body = f'\\texttt{{{escape_typewriter(body)}}}'
         if self.settings.bold:
             body = f'\\bold{{{body}}}'
         if self.settings.overline:

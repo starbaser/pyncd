@@ -21,26 +21,26 @@ via the `window.tsncd` hook in `src/index.ts`, so the two agree by construction
 rather than by discipline. The websocket server is not involved at all: a
 figure rebuild should not require a server to be up.
 
-Requires Playwright, which is not part of `requirements.txt` because it pulls
-down a browser:
+Requires Playwright, which the `headless` extra holds and which pulls down a
+browser of its own:
 
-    pip install -r requirements-headless.txt
+    uv sync --extra headless
     playwright install chromium
 
-and a built tsncd bundle - `npm run build` in the tsncd checkout, which is what
-puts `dist/` there.
+and the built tsncd page, which an installed wheel carries and which a checkout
+names through `TSNCD_DIST`, per `websocket_transfer/bundle.py`.
 '''
 
 import contextlib
 import functools
 import http.server
-import os
 import pathlib
 import threading
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import data_transfer.term_json as dtj
+import websocket_transfer.bundle as bundle
 import websocket_transfer.send_morphism as sm
 import websocket_transfer.websockets_transfer as wst
 
@@ -83,36 +83,6 @@ DEFAULT_VIEWPORT = {'width': 1600, 'height': 1200}
 # `None` already means "transparent" for a background, so "not specified" needs
 # a value of its own.
 UNSET: Any = object()
-
-'''
-Where to look for the built tsncd bundle. `TSNCD_DIST` wins. Failing that, the
-search covers the two names a tsncd checkout beside this repository is given,
-`tsncd` and `tsncd-public`.
-'''
-DIST_ENV_VAR = 'TSNCD_DIST'
-SIBLING_DIST_CANDIDATES = ('tsncd/dist', 'tsncd-public/dist')
-
-
-def find_dist(dist: str | pathlib.Path | None = None) -> pathlib.Path:
-    '''Locate tsncd's `dist/`, raising an error that states how to build it.'''
-    candidates: list[pathlib.Path] = []
-    if dist is not None:
-        candidates = [pathlib.Path(dist)]
-    elif env := os.environ.get(DIST_ENV_VAR):
-        candidates = [pathlib.Path(env)]
-    else:
-        siblings = pathlib.Path(__file__).resolve().parent.parent.parent
-        candidates = [siblings / name for name in SIBLING_DIST_CANDIDATES]
-
-    for candidate in candidates:
-        if (candidate / 'index.html').is_file():
-            return candidate
-    raise FileNotFoundError(
-        'No built tsncd bundle found (looked in '
-        + ', '.join(str(c) for c in candidates)
-        + f'). Run `npm run build` in the tsncd checkout, or point {DIST_ENV_VAR} '
-        'at its `dist/` directory.')
-
 
 class _QuietHandler(http.server.SimpleHTTPRequestHandler):
     '''
@@ -183,14 +153,14 @@ class HeadlessRenderer:
             from playwright.async_api import async_playwright
         except ImportError as e:
             raise ImportError(
-                'Headless capture needs Playwright: `pip install -r '
-                'requirements-headless.txt` then `playwright install chromium`.'
+                'Headless capture needs Playwright: install the `headless` extra, '
+                'then run `playwright install chromium`.'
             ) from e
 
         self._stack = contextlib.AsyncExitStack()
         await self._stack.__aenter__()
         try:
-            url = self._stack.enter_context(serve_directory(find_dist(self.dist)))
+            url = self._stack.enter_context(serve_directory(bundle.locate_bundle(self.dist)))
             playwright = await self._stack.enter_async_context(async_playwright())
             browser = await playwright.chromium.launch()
             self._stack.push_async_callback(browser.close)

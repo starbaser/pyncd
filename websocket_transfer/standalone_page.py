@@ -50,6 +50,7 @@ from dataclasses import dataclass
 
 import data_transfer.json_compression as json_compression
 import data_transfer.term_json as term_json
+import websocket_transfer.bundle as bundle
 import websocket_transfer.headless as headless
 import websocket_transfer.localise_descriptions as localise_descriptions
 import websocket_transfer.send_morphism as send_morphism
@@ -182,8 +183,8 @@ def page_holding(
 ) -> str:
     '''tsncd's built page as one HTML document holding its bundle and
     `json_elements`, with the theme of `settings` stated at the start of its head.'''
-    found = headless.find_dist(dist)
-    page, bundle = inline_bundle((found / 'index.html').read_text('utf-8'), found)
+    found = bundle.locate_bundle(dist)
+    page, bundle_text = inline_bundle((found / 'index.html').read_text('utf-8'), found)
     page = with_theme_stated(page, settings)
     before, end_of_body, after = page.rpartition(END_OF_BODY)
     if not end_of_body:
@@ -192,7 +193,7 @@ def page_holding(
         before,
         json_elements,
         '<script>',
-        text_of_script_element(bundle),
+        text_of_script_element(bundle_text),
         '</script>\n',
         end_of_body,
         after))

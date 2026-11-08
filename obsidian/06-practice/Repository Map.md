@@ -57,7 +57,7 @@ mathematics:
 | `CLAUDE.md` | how to work here |
 | `AGENTS.md` | the instruction an agent reads first |
 | `validate_repository.py` | imports, validators and vault links, in one command. Its `validators` check is the runner of `validations/` applied to the discovered `validate_*.py` scripts |
-| `run_server.py` | the relay a browser diagram goes through |
+| `websocket_transfer/serve.py` | the relay a browser diagram goes through, run as `pyncd-server`, which also serves the tsncd page the wheel carries |
 
 ## Where to start reading code
 

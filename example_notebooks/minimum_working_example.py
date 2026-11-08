@@ -4,7 +4,7 @@ Run it from the repository root, with a tsncd page open in a browser:
 
     python example_notebooks/minimum_working_example.py
 
-It runs `run_server.py` as a subprocess, which holds the relay for as long as the
+It runs the relay, `websocket_transfer.serve`, as a subprocess, which holds the relay for as long as the
 menu is open. The menu numbers the expressions built by the notebooks in this
 folder, and the one that is chosen is sent to the page. Each expression is also
 printed with `display.print_category`, which draws it in the terminal and needs
@@ -185,8 +185,8 @@ async def ask_input() -> None | Literal['Quit']:
 
 if __name__ == '__main__':
     server = subprocess.Popen(
-        [sys.executable,
-         os.path.join(fix_notebook_dir.REPO_ROOT, 'run_server.py')])
+        [sys.executable, '-m', 'websocket_transfer.serve', '--relay-only'],
+        cwd=fix_notebook_dir.REPO_ROOT)
     print('Server started.')
     while True:
         command = asyncio.run(ask_input())

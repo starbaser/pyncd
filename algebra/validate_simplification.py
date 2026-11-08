@@ -9,7 +9,7 @@ shapes. The check is therefore numeric: compile both forms with
 
     python algebra/validate_simplification.py
 
-It needs `torch`, which `requirements.txt` does not list. Without `torch` the
+It needs `torch`, which the `torch` extra holds. Without `torch` the
 script reports the fact and exits 0, because nothing else in the package
 depends on it.
 

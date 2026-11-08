@@ -57,14 +57,43 @@ These utilities build on the core data structure. They feed into a "web" of tool
  ![The p0, p1 indexes of the output correspond to the reindexed locations along the input.]( _guide/figures/broadcast_weave.png)
 
 # Setup
- - ***This package requires Python 3.13.***
+ - ***This package requires Python 3.13 or later.***
 
- - For diagrammatic visualization, the [`tsncd`](https://github.com/mit-zardini-lab/tsncd) package is required. We run `python run_server.py` (requires `pip install websockets`) in an independent terminal. `tsncd` carries the same relay under `npm run server`, which needs no Python package and answers the same messages. Either will do. Only one of them may hold port 8765. When the server is running, the browser connects on refresh. As in `example_notebooks/Transformer.ipynb`, we connect from Python, updating the data in the server. The wire format between the two packages is documented in
+The package installs from its GitHub repository with uv or pip, and the wheel
+carries the built [`tsncd`](https://github.com/starbaser/tsncd) page, so a
+diagram needs no tsncd checkout:
+
+```
+uv add "pyncd @ git+https://github.com/starbaser/pyncd"
+uv add "pyncd[diagrams,headless] @ git+https://github.com/starbaser/pyncd"   # notebooks and headless capture
+pyncd-server
+```
+
+The `diagrams` extra holds the notebook helper's dependencies and `headless` holds
+Playwright, which also needs `playwright install chromium`. `torch` holds the
+compiler's. Building the wheel from a checkout clones the tsncd revision
+`pyproject.toml` pins and builds its page with npm, so the build needs git, Node 24
+and the network. `PYNCD_TSNCD_BUNDLE=<dir>` has the build copy a built page in
+place of that, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel without one.
+
+`pyncd-server` runs the relay and serves the page on one port, `8765` unless
+`PORT` or `--port` says otherwise, so the address it prints is the one to open in
+a browser. When the server is running, the browser connects on refresh. As in
+`example_notebooks/Transformer.ipynb`, we connect from Python, updating the data in
+the server. `tsncd` carries the same relay under `tsncd serve` and `npm run
+server`, and either will do, but only one of them may hold the port. The wire
+format between the two packages is documented in
 [`obsidian/05-backends/Diagram Wire Format.md`](obsidian/05-backends/Diagram%20Wire%20Format.md).
 
 The relay and Python clients read `HOST` and `PORT`, with defaults `localhost`
 and `8765`. See [relay configuration](obsidian/05-backends/Diagram%20Wire%20Format.md#configure-the-relay-address)
 for remote browser access and examples.
+
+A development checkout, `uv sync --extra diagrams --extra headless`, installs the
+package editable and carries no page. It names a built tsncd page through
+`TSNCD_DIST`, and the flake's development shell sets that variable to the page
+tsncd's flake builds. `nix run github:starbaser/pyncd` runs `pyncd-server` from the
+flake, whose wheel takes its page from tsncd's flake output.
 
 # Diagrams in the notebook
 
@@ -118,8 +147,8 @@ than its scale. 750 (the default) gives a 1.43 aspect ratio on the transformer,
 1400 gives 3.29. Screens want the former; a figure spanning a paper's text block
 usually wants the latter.
 
-Headless capture needs `pip install -r requirements-headless.txt`,
-`playwright install chromium`, and a built tsncd bundle (`npm run build`).
+Headless capture needs the `headless` extra, `playwright install chromium`, and the
+built tsncd page the wheel carries, or the one `TSNCD_DIST` names in a checkout.
 
  - The `example_notebooks/minimum_working_example.py` both hosts a server and has command line inputs for various components which are sent to the server for visualization.
 
@@ -137,7 +166,7 @@ builds one `DiagramSettings` at the top of its setup cell and passes it to every
 renders the figure and embeds it in the cell, so it is saved with the notebook, and it
 draws in a browser the notebook starts itself or in the open page. `BROWSER` sends the
 figure to the open page and embeds nothing, so it needs a relay on port 8765, from
-`python run_server.py` or `tsncd`'s `npm run server`, and a page open from `npm run dev`.
+`pyncd-server` or `tsncd`'s `npm run server`, and a page open from `npm run dev`.
 `HTML` writes the figure as one page that needs nothing, since it opens from the disk
 with no server and no network. `DUMP` writes the term to JSON. `LISTING` prints the
 `agent_display` listing and draws nothing. `OFF` skips the diagram.

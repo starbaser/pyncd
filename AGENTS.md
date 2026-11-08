@@ -1,7 +1,7 @@
 # Private upstream mirror
 
 This repository mirrors [upstream PyNCD](https://github.com/mit-zardini-lab/pyncd)
-at [the owner's private host](https://git.eigenmage.com/eigenmage/pyncd).
+at [the owner's GitHub fork](https://github.com/starbaser/pyncd).
 The private host and its location under the projects directory do not authorise
 local development. Treat this checkout as read-only.
 

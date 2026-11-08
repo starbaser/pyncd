@@ -68,6 +68,38 @@ class NestedBranch[L, M: cat.Morphism](Branch[L, M]):
     def left_nodes(self): return self._branch.left_nodes()
     def newly_processed(self): return (self._graph,)
 
+def memoized_per_analysis[T](
+        function: Callable[[hga.GraphTag, hga.HypergraphAnalysis], T],
+) -> Callable[[hga.GraphTag, hga.HypergraphAnalysis], T]:
+    '''`function` remembering its answer for each producer of one analysis.
+
+    The sequencing walk asks for a producer's boundary and gating set at every
+    step of `rolled_subbranches`, and both are functions of the producer and the
+    one analysis of the walk, which never changes. Recomputing them made the walk
+    cubic in the size of the graph: the outside producer's boundary is the whole
+    domain, so a detaped pass whose inputs are tape slots recomputed a boundary the
+    size of its domain at every ask. The memo lives on the analysis, under the
+    function's name, and is released with it.
+
+    Written by Claude Fable 5.1, effort high, after the replacement Alloy
+    installed over these functions from outside.
+    '''
+    name = function.__name__
+
+    def memoized(graph: hga.GraphTag, analysis: hga.HypergraphAnalysis) -> T:
+        memo = analysis.sequencing_memos.setdefault(name, {})
+        try:
+            return memo[graph]
+        except KeyError:
+            value = memo[graph] = function(graph, analysis)
+            return value
+
+    memoized.__name__ = name
+    memoized.__doc__ = function.__doc__
+    return memoized
+
+
+@memoized_per_analysis
 def boundary_cod(
         graph: hga.GraphTag,
         analysis: hga.HypergraphAnalysis) -> fd.Prod[hg.HypergraphObject]:
@@ -89,6 +121,7 @@ def boundary_cod(
         and any(edge.graph != graph for edge in analysis.nodes_right(node))
     )
 
+@memoized_per_analysis
 def gating_right(
         graph: hga.GraphTag,
         analysis: hga.HypergraphAnalysis) -> fd.Prod[hga.GraphTag]:
@@ -116,12 +149,23 @@ def exclusive(
         local: fd.Prod[hga.GraphTag],
         ignore: fd.Prod[hga.GraphTag],
         analysis: hga.HypergraphAnalysis):
+    '''The producers of `nodes` that sequencing can emit now, in arrival order.
+
+    The three sets are built once per call. `rolled_subbranches` grows `ignore`
+    with every branch it places and calls this for every prefix of the frontier,
+    so building them once per candidate inside the generator, and scanning the
+    tuple by structural equality, was quadratic in the number of placed graphs
+    on top of the walk's own length.
+    '''
+    node_set = set(nodes)
+    local_set = set(local)
+    ignored = set(ignore)
     graphs = util.unique_iterable(
         graph for graph, _, _ in
         analysis.nodes_left(*nodes)
-        if set(boundary_cod(graph, analysis)) <= set(nodes)
-        and set(gating_right(graph, analysis)) <= set(local)
-        and graph not in ignore
+        if graph not in ignored
+        and all(node in node_set for node in boundary_cod(graph, analysis))
+        and all(gate in local_set for gate in gating_right(graph, analysis))
     )
     return tuple(graphs)
 

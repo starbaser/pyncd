@@ -76,6 +76,12 @@ def graph_left_nodes(target: hg.Hypergraph) -> fd.Prod[Node2Graph]:
 class HypergraphAnalysis[L, M: cat.Morphism]:
     target: hg.Hypergraph[L, M]
 
+    @cached_property
+    def sequencing_memos(self) -> dict[str, dict[GraphTag[L, M], object]]:
+        '''Answers `Hypergraph2Morphism` remembers per producer for this analysis,
+        one table per memoized function, released with the analysis.'''
+        return {}
+
     # includes codomain
     @cached_property
     def __node_right(self) -> util.Multidict[hg.HypergraphObject[L], Node2Graph[L, M]]:

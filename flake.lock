@@ -78,11 +78,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1794180111,
-        "narHash": "sha256-+EP5GBmv+kMVHg7TIL8gENxZWl2nX6iTxSZGMLoV6Us=",
+        "lastModified": 1794189576,
+        "narHash": "sha256-d9+0ngvIHCAJZzxqAB1a9c9lkVNVGSlbJ9Lw4MlhhSw=",
         "owner": "starbaser",
         "repo": "tsncd",
-        "rev": "aea74ded88a6fa7272508f3620384391ce3fc131",
+        "rev": "9fce9f498501c2044a49f594df27bb6dc85b4e9f",
         "type": "github"
       },
       "original": {

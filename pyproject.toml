@@ -33,7 +33,7 @@ build-backend = "hatchling.build"
 # The tsncd page the wheel carries, written by `hatch_build.py` from this revision.
 [tool.pyncd.tsncd]
 repository = "https://github.com/starbaser/tsncd.git"
-revision = "aea74ded88a6fa7272508f3620384391ce3fc131"
+revision = "9fce9f498501c2044a49f594df27bb6dc85b4e9f"
 
 [tool.hatch.build.hooks.custom]
 path = "hatch_build.py"

@@ -39,6 +39,7 @@ import data_structure.Operators as ops
 import graphs.data_structure.Hypergraph as hg
 import graphs.processing.Hypergraph2Morphism as h2m
 import term_utilities.term_utilities as tutil
+import term_utilities.generate_config as generate_config
 
 import agent_display as ad
 import algebra.einops_rearrange as er
@@ -103,6 +104,16 @@ def _run(module, *xs):
     return result if isinstance(result, tuple) else (result,)
 
 
+def _sized(term):
+    '''`term` with every axis bound to `SIZES`. Most constructors read their shapes
+    off their operands at run time; a nullary one, such as the `Zero` a dropped
+    wire's cotangent compiles to, has no operand and reads the bound size.'''
+    config = generate_config.NumericConfig.template(term)
+    names = {term.uid._name.to_bodies() for term in config.terms if term.uid._name is not None}
+    config.assign_values(**{name: SIZES[name] for name in names if name in SIZES})
+    return config.apply_context(term)
+
+
 def check(name, target, taped, torch) -> dict[str, bool]:
     '''One Taped pair against autograd. The reference is the *expression*
     compiled directly, and the pair is compiled through `detape`.'''
@@ -114,7 +125,12 @@ def check(name, target, taped, torch) -> dict[str, bool]:
     reference = _run(tc.ConstructedModule.construct(target), *inputs)
     assert len(reference) == 1, 'one-output expressions only'
     dy = torch.randn_like(reference[0])
-    grads = torch.autograd.grad(reference[0], inputs, grad_outputs=dy)
+    # An input the expression drops has no gradient; its cotangent is the zero
+    # map `backprop` writes for a deleted wire.
+    grads = tuple(
+        torch.zeros_like(x) if g is None else g
+        for x, g in zip(inputs, torch.autograd.grad(
+            reference[0], inputs, grad_outputs=dy, allow_unused=True)))
 
     forward, forward_tape = detape(taped.forward)
     backward, backward_tape = detape(taped.backward)
@@ -127,7 +143,7 @@ def check(name, target, taped, torch) -> dict[str, bool]:
     results['forward value'] = torch.allclose(
         primary[0], reference[0], atol=1e-4)
 
-    cotangents = _run(tc.ConstructedModule.construct(backward),
+    cotangents = _run(tc.ConstructedModule.construct(_sized(backward)),
                       dy, *residuals)
     results['backward = autograd'] = (
         len(cotangents) == len(grads)
@@ -178,6 +194,15 @@ def shifted_softmax(batch='q'):
     return oe.expand_shifted_softmaxes(named_softmax('x', batch))
 
 
+def dropped_input():
+    '''A matmul behind a `Rearrangement` that deletes a first input. The backward
+    writes the deleted input's cotangent as `Zero`, which the compiler constructs.'''
+    matmul = ops.Einops.template('q d, d v -> q v')
+    left, right = tuple(matmul.dom())
+    dropped = cat.Array(cat.Reals(), (cat.RawAxis.named('w'),))
+    return cat.Rearrangement((1, 2), (dropped, left, right)) @ matmul
+
+
 def duplicated_exponential():
     '''One input copied into two equal exponentials that are added. The forward
     pass holds two roots computing one value, and `dedup_roots` keeps one.'''
@@ -204,6 +229,7 @@ def cases(torch) -> dict[str, bool]:
     everything = {}
     for name, target in (
         ('matmul', ops.Einops.template('q d, d v -> q v')),
+        ('dropped input', dropped_input()),
         ('duplicated exponential', duplicated_exponential()),
         ('softmax', named_softmax('x', 'q')),
         ('expanded softmax', expanded_softmax()),

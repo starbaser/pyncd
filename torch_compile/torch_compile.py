@@ -24,6 +24,7 @@ import einops
 import torch_compile.bcast as bcast
 import torch_compile.torch_utilities as torch_utilities
 import para.data_structure.transpose as ptr
+import para.data_structure.contraction as pcon
 import algebra.einops_simplification as einops_simplification
 
 @dataclass(frozen=True)
@@ -520,6 +521,28 @@ class ConstructedEmbedding[
     
     def forward(self, *xs):
         return self.func(*xs)
+
+
+class ConstructedZero(ConstructedModule, operation_key=pcon.Zero):
+    '''
+    The zero cotangent of a dropped wire, which `para.processing.backprop` writes
+    for every input a `Rearrangement` deletes: a nullary module returning zeros of
+    the output weave's bound shape. The zeros are a buffer, so the module's
+    `.to(device, dtype)` carries them with the rest of the pass.
+    '''
+    def __init__(self, target: cat.Broadcasted[cat.Datatype, cat.Axis, pcon.Zero]):
+        super().__init__(target)
+        match target.input_weaves, target.output_weaves:
+            case [], [cat.Weave() as weave_out]:
+                shape = tuple(axis.local_size()._value for axis in weave_out.target().shape())  # type: ignore
+            case _:
+                raise ValueError('Zero takes no operand and emits one array')
+        self.register_buffer('zeros', torch.zeros(shape), persistent=False)
+
+    def forward(self, *xs):
+        assert not xs, 'Zero takes no operand'
+        return self.zeros
+
     
 def trailing_dims(normalised_rank: int) -> tuple[int, ...]:
     '''The last `normalised_rank` dimensions of a tensor, which hold the array the

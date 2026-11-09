@@ -1047,8 +1047,8 @@ The checks run under an interpreter holding the package's dependencies.
 extra and the `dev` group, and `result-dev/bin/python` then runs the commands
 below. A notebook runs under a kernel the executor writes for that interpreter, so a
 user-level `python3` kernelspec does not stand in. `nix build .#check --out-link
-result-check` adds the `torch` extra, with nixpkgs' prebuilt torch, for the
-validators that import `torch` and `einops`.
+result-check` adds the `torch` extra, with the PyPI torch wheel running on the CPU,
+for the validators that import `torch` and `einops`.
 
 Validate a change by passing the modified files to the runner.
 `validations/run_validations.py` works out which validations depend on those files and

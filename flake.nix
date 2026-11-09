@@ -55,14 +55,35 @@
           pkgs = nixpkgs.legacyPackages.${system};
           bundle = tsncd.packages.${system}.bundle;
           # The wheel build copies tsncd's Nix output in place of cloning and
-          # building the page with npm, which the sandbox could not do.
-          pyprojectOverrides = final: prev: {
-            pyncd = prev.pyncd.overrideAttrs (old: {
-              PYNCD_TSNCD_BUNDLE = "${bundle}";
-              nativeBuildInputs =
-                (old.nativeBuildInputs or [ ]) ++ final.resolveBuildSystem { hatchling = [ ]; };
-            });
-          };
+          # building the page with npm, which the sandbox could not do. The check
+          # environment holds the PyPI torch wheel and the CUDA libraries beside
+          # it, which torch loads from its own site-packages at import, so the
+          # libraries the host driver would supply are left unpatched and the
+          # validators run on the CPU. A consumer that runs on a GPU gives those
+          # libraries the driver runpath in its own flake.
+          pyprojectOverrides =
+            final: prev:
+            let
+              cudaLibraryNames = builtins.filter (name: lib.hasPrefix "nvidia-" name) (
+                builtins.attrNames prev
+              );
+            in
+            {
+              pyncd = prev.pyncd.overrideAttrs (old: {
+                PYNCD_TSNCD_BUNDLE = "${bundle}";
+                nativeBuildInputs =
+                  (old.nativeBuildInputs or [ ]) ++ final.resolveBuildSystem { hatchling = [ ]; };
+              });
+              torch = prev.torch.overrideAttrs (old: {
+                autoPatchelfIgnoreMissingDeps = [ "*" ];
+              });
+            }
+            // lib.genAttrs cudaLibraryNames (
+              name:
+              prev.${name}.overrideAttrs (old: {
+                autoPatchelfIgnoreMissingDeps = [ "*" ];
+              })
+            );
         in
         (pkgs.callPackage pyproject-nix.build.packages { python = pkgs.python314; }).overrideScope (
           lib.composeManyExtensions [

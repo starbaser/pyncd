@@ -38,7 +38,7 @@ def page_to_serve(relay_only: bool) -> pathlib.Path | None:
     record = bundle.bundle_record(page)
     if record is not None:
         built = record['revision'] or 'an unrecorded revision'
-        print(f'Page built from {record["repository"]} ({record["branch"]}) at {built}.')
+        print(f'Page built from tsncd at {built}.')
     return page
 
 

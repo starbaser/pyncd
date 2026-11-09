@@ -71,10 +71,10 @@ pyncd-server
 
 The `diagrams` extra holds the notebook helper's dependencies and `headless` holds
 Playwright, which also needs `playwright install chromium`. `torch` holds the
-compiler's. Building the wheel from a checkout clones the tip of the tsncd branch
-`pyproject.toml` names and builds its page with npm, so the build needs git, Node 24
-and the network. `PYNCD_TSNCD_BUNDLE=<dir>` has the build copy a built page in
-place of that, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel without one.
+compiler's. A wheel carries the built tsncd page `PYNCD_TSNCD_BUNDLE=<dir>` names
+at build time, which the flake sets to tsncd's own output; the build fetches
+nothing. A wheel built without one carries no page, and `TSNCD_DIST=<dir>` names
+one at run time.
 
 `pyncd-server` runs the relay and serves the page on one port, `8765` unless
 `PORT` or `--port` says otherwise, so the address it prints is the one to open in

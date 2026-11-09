@@ -85,7 +85,7 @@ def check_locator_order() -> None:
             else:
                 os.environ[bundle.DIST_ENV_VAR] = previous
         assert bundle.bundle_record(named) is None
-        record = {'repository': 'r', 'branch': 'b', 'revision': None}
+        record = {'revision': None}
         (named / bundle.BUNDLE_RECORD).write_text(json.dumps(record), encoding='utf-8')
         assert bundle.bundle_record(named) == record
 

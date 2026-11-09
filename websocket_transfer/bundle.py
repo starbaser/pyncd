@@ -1,10 +1,10 @@
 '''Where the built tsncd page is.
 
 The wheel carries the page bundle under `websocket_transfer/tsncd_bundle/`, which
-`hatch_build.py` writes at build time from the page the build names or from the tip
-of the tsncd branch `pyproject.toml` names, so an installed pyncd serves and captures
-diagrams with no tsncd checkout. A development checkout, whose editable install
-writes no bundle, names one through `TSNCD_DIST`, and a caller may name one directly.
+`hatch_build.py` copies at build time from the page the build names, so an installed
+pyncd serves and captures diagrams with no tsncd checkout. A development checkout,
+whose editable install writes no bundle, names one through `TSNCD_DIST`, and a caller
+may name one directly.
 '''
 from __future__ import annotations
 
@@ -20,10 +20,8 @@ BUNDLE_RECORD = 'bundle.json'
 
 
 class BundleRecord(TypedDict):
-    '''What `hatch_build.py` writes beside the bundle: the tsncd repository and branch
-    the page comes from, and the revision that was built where the build knew it.'''
-    repository: str
-    branch: str
+    '''What `hatch_build.py` writes beside the bundle: the tsncd revision the page was
+    built from, where the build knew it.'''
     revision: str | None
 
 

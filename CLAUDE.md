@@ -1024,15 +1024,16 @@ diagrams --extra headless` makes a development environment.
 
 `hatch_build.py` is the build hook that writes `websocket_transfer/tsncd_bundle/`
 into a wheel. It copies the page `PYNCD_TSNCD_BUNDLE` names, which the flake sets to
-tsncd's own Nix output, and otherwise clones the tsncd revision `[tool.pyncd.tsncd]`
-pins and builds the page with npm. It writes `bundle.json` beside the page, naming
-the repository and revision, and `pyncd-server` prints them. An editable install
-writes no page, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel without one.
-`websocket_transfer/bundle.py` locates the page at run time: an explicit path, then
-`TSNCD_DIST`, then the packaged page. Every reader of the page goes through it, and
-nothing looks for a tsncd checkout beside this repository. Moving the pin means
-editing the revision in `pyproject.toml` and running `nix flake update tsncd`, so the
-wheel built with npm and the wheel built by the flake carry the same page.
+tsncd's own Nix output alongside its revision in `PYNCD_TSNCD_REVISION`, and
+otherwise clones the tip of the tsncd branch `[tool.pyncd.tsncd]` names and builds
+the page with npm. It writes `bundle.json` beside the page, naming the repository,
+the branch and the revision where the build knew it, and `pyncd-server` prints them.
+An editable install writes no page, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel
+without one. `websocket_transfer/bundle.py` locates the page at run time: an explicit
+path, then `TSNCD_DIST`, then the packaged page. Every reader of the page goes
+through it, and nothing looks for a tsncd checkout beside this repository. No
+revision is stored: the branch in `pyproject.toml` and the flake's `tsncd` input both
+follow tsncd's `main`, and `nix flake update tsncd` moves the page the flake builds.
 
 `flake.nix` follows the uv2nix pattern of Eigenpy. `packages.env` is the environment
 with the `diagrams` extra, `apps.default` runs `pyncd-server` from it, and the

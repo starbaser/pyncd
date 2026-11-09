@@ -71,6 +71,7 @@
             {
               pyncd = prev.pyncd.overrideAttrs (old: {
                 PYNCD_TSNCD_BUNDLE = "${bundle}";
+                PYNCD_TSNCD_REVISION = tsncd.rev;
                 nativeBuildInputs =
                   (old.nativeBuildInputs or [ ]) ++ final.resolveBuildSystem { hatchling = [ ]; };
               });

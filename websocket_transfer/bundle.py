@@ -1,10 +1,10 @@
 '''Where the built tsncd page is.
 
 The wheel carries the page bundle under `websocket_transfer/tsncd_bundle/`, which
-`hatch_build.py` writes at build time from the tsncd revision `pyproject.toml` pins,
-so an installed pyncd serves and captures diagrams with no tsncd checkout. A
-development checkout, whose editable install writes no bundle, names one through
-`TSNCD_DIST`, and a caller may name one directly.
+`hatch_build.py` writes at build time from the page the build names or from the tip
+of the tsncd branch `pyproject.toml` names, so an installed pyncd serves and captures
+diagrams with no tsncd checkout. A development checkout, whose editable install
+writes no bundle, names one through `TSNCD_DIST`, and a caller may name one directly.
 '''
 from __future__ import annotations
 
@@ -20,9 +20,11 @@ BUNDLE_RECORD = 'bundle.json'
 
 
 class BundleRecord(TypedDict):
-    '''What `hatch_build.py` writes beside the bundle it copied.'''
+    '''What `hatch_build.py` writes beside the bundle: the tsncd repository and branch
+    the page comes from, and the revision that was built where the build knew it.'''
     repository: str
-    revision: str
+    branch: str
+    revision: str | None
 
 
 def packaged_bundle() -> pathlib.Path | None:
@@ -52,7 +54,7 @@ def locate_bundle(dist: str | pathlib.Path | None = None) -> pathlib.Path:
 
 
 def bundle_record(bundle: pathlib.Path) -> BundleRecord | None:
-    '''The tsncd revision a packaged bundle was built from, or None for a bundle that
+    '''The tsncd source a packaged bundle was built from, or None for a bundle that
     names none, such as a tsncd checkout's own `dist/`.'''
     record = bundle / BUNDLE_RECORD
     if not record.is_file():

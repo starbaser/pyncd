@@ -71,8 +71,8 @@ pyncd-server
 
 The `diagrams` extra holds the notebook helper's dependencies and `headless` holds
 Playwright, which also needs `playwright install chromium`. `torch` holds the
-compiler's. Building the wheel from a checkout clones the tsncd revision
-`pyproject.toml` pins and builds its page with npm, so the build needs git, Node 24
+compiler's. Building the wheel from a checkout clones the tip of the tsncd branch
+`pyproject.toml` names and builds its page with npm, so the build needs git, Node 24
 and the network. `PYNCD_TSNCD_BUNDLE=<dir>` has the build copy a built page in
 place of that, and `PYNCD_SKIP_TSNCD_BUNDLE=1` builds a wheel without one.
 

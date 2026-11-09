@@ -85,9 +85,9 @@ def check_locator_order() -> None:
             else:
                 os.environ[bundle.DIST_ENV_VAR] = previous
         assert bundle.bundle_record(named) is None
-        (named / bundle.BUNDLE_RECORD).write_text(
-            json.dumps({'repository': 'r', 'revision': 'v'}), encoding='utf-8')
-        assert bundle.bundle_record(named) == {'repository': 'r', 'revision': 'v'}
+        record = {'repository': 'r', 'branch': 'b', 'revision': None}
+        (named / bundle.BUNDLE_RECORD).write_text(json.dumps(record), encoding='utf-8')
+        assert bundle.bundle_record(named) == record
 
 
 def check_typewriter_escaping() -> None:

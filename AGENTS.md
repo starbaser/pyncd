@@ -1,19 +1,24 @@
-# Private upstream mirror
+# The owner's PyNCD fork
 
-This repository mirrors [upstream PyNCD](https://github.com/mit-zardini-lab/pyncd)
-at [the owner's GitHub fork](https://github.com/starbaser/pyncd).
-The private host and its location under the projects directory do not authorise
-local development. Treat this checkout as read-only.
+This repository is [the owner's GitHub fork](https://github.com/starbaser/pyncd) of
+[upstream PyNCD](https://github.com/mit-zardini-lab/pyncd). Consumers (Alloy, AutomatUI)
+follow its `main` branch.
 
-The initial bootstrap includes the three reviewed fixes for positional Linear
-indices, pass-through producer detection, and wiring-block reconstruction, plus
-this ownership guidance. After bootstrap, only commits from the official upstream
-may be merged. Do not author further fixes, features, refactors, packaging changes,
-or guidance changes here. Keep integration work in the consuming projects.
+Changes here are feasible, but every one of them is reviewed by the owner before it
+lands. An agent working in a consuming project does not edit, commit, or push here on
+its own authority, and approval of a program or plan does not cover its individual
+commits. The procedure is:
 
-Fetch upstream through `upstream` and push authorised upstream merges to the private
-`origin`. The upstream push URL is disabled. Preserve this policy when merging
-upstream guidance.
+1. Prefer a fix on the consumer's side when one is feasible (Alloy's installed patches
+   and overlays are the sanctioned shape).
+2. When the fix belongs in PyNCD, write it on a branch or as an uncommitted diff, with a
+   validator check against PyNCD's own corpus, and submit it to the owner as a request
+   naming the exact change and its reason.
+3. The owner reviews and lands it on `main`. Note the change in this repository's own
+   files so it can be offered upstream later.
+
+Fetch upstream through `upstream`; the upstream push URL is disabled. Upstream merges
+follow the same review. Preserve this policy when merging upstream guidance.
 
 # Read the repository instructions
 

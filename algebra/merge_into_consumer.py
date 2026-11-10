@@ -124,15 +124,20 @@ def _reading_pairs(
     wire at two ports is skipped, because the rules take one port.
     '''
     subgraphs = graph._subgraphs
+    # Every wire's mergeable readers and the ports they read it at, found in one walk
+    # over the scope. Asking each producer against each sibling instead costs the
+    # square of the scope for every merge, and an unrolled loop has thousands of both.
+    readers: dict[hg.HypergraphObject, dict[int, list[int]]] = {}
+    for j, consumer in enumerate(subgraphs):
+        if not _mergeable(consumer):
+            continue
+        for p, obj in enumerate(consumer.dom):
+            readers.setdefault(obj, {}).setdefault(j, []).append(p)
     for i, producer in enumerate(subgraphs):
         if not _mergeable(producer) or len(producer.cod) != 1:
             continue
-        wire = producer.cod[0]
-        for j, consumer in enumerate(subgraphs):
-            if i == j or not _mergeable(consumer):
-                continue
-            ports = [p for p, obj in enumerate(consumer.dom) if obj == wire]
-            if len(ports) == 1:
+        for j, ports in readers.get(producer.cod[0], {}).items():
+            if i != j and len(ports) == 1:
                 yield i, j, ports[0]
 
 

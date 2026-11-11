@@ -107,7 +107,13 @@ class Term:
         because a hash computed in one process is wrong in another.'''
         return {key: value for key, value in self.__dict__.items() if key != '_hash'}
 
-IDMAX = 2**31-1
+IDMAX = 2**53-1
+'''The largest id. A wire is its id, so two terms that draw the same id are one term to
+every rewrite. Among `n` ids drawn at random the expected number of such pairs is about
+`n**2 / (2 * IDMAX)`: a diagram that draws a few hundred thousand ids had some twenty
+in a range of `2**31`, and a pass whose graph held both wires of a pair was wired
+wrongly. The range is the widest whose every value a consumer that reads an id as a
+JSON number, as tsncd does, still holds exactly.'''
 type IDType = int
 def fresh_id() -> IDType:
     return random.randint(1, IDMAX)

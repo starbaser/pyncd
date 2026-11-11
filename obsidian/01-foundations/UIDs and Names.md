@@ -25,7 +25,7 @@ diagrams and listings read well. They carry no identity.
 | name | what it is |
 |---|---|
 | `UID[T]` | `_type`, `_id` (random per process), `_name` |
-| `fresh_id()` | a new random id in `[1, 2**31-1]` |
+| `fresh_id()` | a new random id in `[1, 2**53-1]`, wide enough that two ids of one diagram do not coincide and narrow enough that a JSON number holds it exactly |
 | `hash_id(obj)` | an id *derived* from a value, as a digest of its `repr`, so it is stable across calls and across processes |
 | `Term.__getstate__` | the state pickle records: every field and not the cached hash, which is wrong in another process |
 | `DynamicName` | body / subscript / settings / code form / exponent, with `to_bodies()`, `to_text()`, `to_latex()`, `to_code_form()`, `add_subscript()`, `capture()`. The code form and the exponent are optional and are stated in [[Code Forms]] |

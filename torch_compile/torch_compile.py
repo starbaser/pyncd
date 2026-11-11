@@ -131,18 +131,35 @@ class ConstructedBlock[B: cat.Datatype, A: cat.Axis](
 class ConstructedProduct[B: cat.Datatype, A: cat.Axis](
     ConstructedModule[Br.ProductOfMorphisms[B, A]]
     ):
+    '''A product of morphisms applied to its operands factor by factor.
+
+    A factor that rearranges wires and computes nothing is applied to the operands
+    directly. A sequenced expression carries every live wire past each of its steps as
+    such a factor, so a module call for each of them costs the number of wires times the
+    number of steps on every pass. Every other factor is a module of `content`.
+    '''
     def __init__(self, target: Br.ProductOfMorphisms[B, A]) -> None:
         super().__init__(target)
-        fs = map(ConstructedModule.construct, target.content)
-        self.content = nn.ModuleList(fs)
-        
+        self.content = nn.ModuleList()
+        self.factors: list[tuple[fd.Prod[int], nn.Module | None]] = []
+        start = 0
+        for factor in target.content:
+            end = start + len(factor.dom())
+            if isinstance(factor, cat.Rearrangement):
+                self.factors.append(
+                    (tuple(start + position for position in factor.mapping), None))
+            else:
+                module = ConstructedModule.construct(factor)
+                self.content.append(module)
+                self.factors.append((tuple(range(start, end)), module))
+            start = end
+
     def forward(self, *xs: torch.Tensor) -> fd.Prod[torch.Tensor]:
-        return tuple(
-            y
-            for f, (_, x)
-            in zip(self.content, self.target.partition(xs))
-            for y in to_tuple(f(*x))
-        )
+        produced: list[torch.Tensor] = []
+        for operand_positions, module in self.factors:
+            operands = tuple(xs[position] for position in operand_positions)
+            produced.extend(operands if module is None else to_tuple(module(*operands)))
+        return tuple(produced)
     
 def to_tuple[T](x: T | tuple[T, ...]) -> tuple[T, ...]:
     return x if isinstance(x, tuple) else (x,)

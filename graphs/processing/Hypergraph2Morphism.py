@@ -132,6 +132,16 @@ def gating_right(
         for edge in analysis.nodes_right(*boundary_cod(graph, analysis))
     ))
 
+@memoized_per_analysis
+def produced_nodes(
+        graph: hga.GraphTag,
+        analysis: hga.HypergraphAnalysis) -> frozenset[hg.HypergraphObject]:
+    '''The nodes `graph` writes: its codomain without the wires it passes
+    through untouched.'''
+    return (frozenset(analysis.tag_cod(graph))
+            - frozenset(analysis.tag_dom(graph)))
+
+
 def produces(
         graph: hga.GraphTag,
         node: hg.HypergraphObject,
@@ -141,33 +151,7 @@ def produces(
     A wire a block passes through untouched keeps its node, so the block lists
     the node in its codomain without writing it, per `boundary_cod`.
     '''
-    return (node in analysis.tag_cod(graph)
-            and node not in set(analysis.tag_dom(graph)))
-
-def exclusive(
-        nodes: fd.Prod[hg.HypergraphObject],
-        local: fd.Prod[hga.GraphTag],
-        ignore: fd.Prod[hga.GraphTag],
-        analysis: hga.HypergraphAnalysis):
-    '''The producers of `nodes` that sequencing can emit now, in arrival order.
-
-    The three sets are built once per call. `rolled_subbranches` grows `ignore`
-    with every branch it places and calls this for every prefix of the frontier,
-    so building them once per candidate inside the generator, and scanning the
-    tuple by structural equality, was quadratic in the number of placed graphs
-    on top of the walk's own length.
-    '''
-    node_set = set(nodes)
-    local_set = set(local)
-    ignored = set(ignore)
-    graphs = util.unique_iterable(
-        graph for graph, _, _ in
-        analysis.nodes_left(*nodes)
-        if graph not in ignored
-        and all(node in node_set for node in boundary_cod(graph, analysis))
-        and all(gate in local_set for gate in gating_right(graph, analysis))
-    )
-    return tuple(graphs)
+    return node in produced_nodes(graph, analysis)
 
 def make_rearrangement(
     left_nodes: fd.Prod[hg.HypergraphObject],
@@ -179,9 +163,13 @@ def make_rearrangement(
     dom = tuple(
         analysis.node_as_cod_obj(node) for node in left_nodes
     )
-    list_left_nodes = list(left_nodes)
-
-    mapping = tuple(list_left_nodes.index(node) for node in right_nodes)
+    positions: dict[hg.HypergraphObject, int] = {}
+    for i, node in enumerate(left_nodes):
+        positions.setdefault(node, i)
+    missing = tuple(node for node in right_nodes if node not in positions)
+    if missing:
+        raise ValueError(f'no left node carries {missing!r}')
+    mapping = tuple(positions[node] for node in right_nodes)
     return (cat.Rearrangement(
         mapping=mapping,
         _dom=dom,
@@ -196,7 +184,7 @@ class SinkPlacement:
     no wire. A block followed by a complete discard also has no required output.
 
     The demand frontier starts at the graph's codomain and walks left, and a
-    sink is never demanded, so `exclusive` never emits one. Each sink is
+    sink is never demanded, so `rolled_subbranches` never emits one. Each sink is
     instead built into a branch before the main walk starts, by
     `make_subbranch`, so the branch holds the sink and every producer that
     feeds the sink alone. The branch then waits in `waiting`, keyed by each
@@ -260,25 +248,60 @@ def rolled_subbranches(
     analysis: hga.HypergraphAnalysis,
     placement: SinkPlacement,
 ) -> fd.Prod[Branch]:
-    branches = ()
-    for n in range(len(nodes)):
+    '''Place producers as their required outputs enter the frontier prefix.
 
-        rolled = nodes[:n+1]
-        current_node = nodes[n]
+    Each producer is checked on arrival and when its last missing output arrives.
+    Local gates are fixed and ignored producers stay ignored throughout the call.
+    Arrival indices preserve the order of a walk over the complete prefix, even
+    when several producers become ready at the same node.
+    '''
+    branches: list[Branch] = []
+    prefix: set[hg.HypergraphObject] = set()
+    local_set = set(local)
+    ignored = set(ignore)
+    carried: set[hg.HypergraphObject] = set()
+    arrivals: dict[hga.GraphTag, int] = {}
+    candidates: list[hga.GraphTag] = []
+    missing_counts: list[int] = []
+    waiting: dict[hg.HypergraphObject, list[int]] = {}
+    for current_node in nodes:
+        ready: list[int] = []
+        if current_node not in prefix:
+            prefix.add(current_node)
+            for index in waiting.pop(current_node, ()):
+                missing_counts[index] -= 1
+                if not missing_counts[index]:
+                    ready.append(index)
 
-        exclusive_subgraphs = exclusive(
-            rolled,
-            local,
-            ignore,
-            analysis)
+        left_edges = analysis.nodes_left(current_node)
+        for graph, _, _ in left_edges:
+            if graph in arrivals:
+                continue
+            index = len(candidates)
+            arrivals[graph] = index
+            candidates.append(graph)
+            missing_counts.append(0)
+            if graph in ignored or any(
+                    gate not in local_set for gate in gating_right(graph, analysis)):
+                continue
+            missing = set(boundary_cod(graph, analysis)) - prefix
+            missing_counts[index] = len(missing)
+            for node in missing:
+                waiting.setdefault(node, []).append(index)
+            if not missing:
+                ready.append(index)
+
+        exclusive_subgraphs = tuple(
+            candidates[index] for index in sorted(ready)
+            if candidates[index] not in ignored)
 
         used_elsewhere = tuple(
             graph for graph, _, _
-            in analysis.nodes_left(current_node)
+            in left_edges
             if produces(graph, current_node, analysis)
             and (graph == hga.HypergraphSpecialTag.LEFT
                  or any(
-                     next_graph not in local
+                     next_graph not in local_set
                      for next_graph in gating_right(graph, analysis)
                  ))
         )
@@ -288,21 +311,22 @@ def rolled_subbranches(
             # branch that passes the node through delivers it itself, and a
             # redundant identity here becomes a copy that rides the whole
             # composition unused before being deleted at the end.
-            if not any(current_node in branch.right_nodes()
-                       for branch in branches):
-                branches += (IdentityBranch.from_node(current_node, analysis),)
+            if current_node not in carried:
+                branches.append(IdentityBranch.from_node(current_node, analysis))
+                carried.add(current_node)
             continue
 
-        branches += tuple(
+        new_branches = tuple(
             make_subbranch(subgraph, analysis, placement)
             for subgraph in exclusive_subgraphs
         )
 
-        ignore += util.concat(
-            branch.newly_processed() for branch in branches
-        )
+        branches.extend(new_branches)
+        for branch in new_branches:
+            carried.update(branch.right_nodes())
+            ignored.update(branch.newly_processed())
 
-    return inject_waiting_sinks(branches, placement)
+    return inject_waiting_sinks(tuple(branches), placement)
 
 @dataclass
 class ProductBranch[L, M: cat.Morphism](Branch[L, M]):
@@ -371,7 +395,7 @@ class ComposedBranch[L, M: cat.Morphism](Branch[L, M]):
     _left_nodes: fd.Prod[hg.HypergraphObject] | None
     _analysis: hga.HypergraphAnalysis
     # The cod the caller requested. A dangling output, meaning a dropped wire,
-    # rides the stacks, which `exclusive` tolerates, and is projected away
+    # rides the stacks, which `rolled_subbranches` tolerates, and is projected away
     # here.
     _right_override: fd.Prod[hg.HypergraphObject] | None = None
 

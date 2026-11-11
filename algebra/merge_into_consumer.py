@@ -24,13 +24,17 @@ their `dom`, and counting them is a `Counter`.
 `obsidian/02-categories/Expression Simplification.md` is the full account.
 '''
 from __future__ import annotations
+import heapq
+import itertools
 from collections import Counter
+from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 import data_structure.Category as cat
 import data_structure.Term as fd
 import graphs.data_structure.Hypergraph as hg
 import graphs.processing.Hypergraph2Morphism as h2m
+import utilities.utilities as util
 
 
 '''
@@ -113,155 +117,255 @@ def canonical_order(
     return tuple(translated)
 
 
-def _reading_pairs(
-    graph: hg.Multigraph,
-) -> Iterable[tuple[int, int, int]]:
-    '''Every `(producer, consumer, port)` of sibling `Broadcasted` roots joined by
-    one wire, as indices into `graph._subgraphs`.
-
-    Siblings, because a wire that crosses into a block is named on the block's dom or
-    cod as well, and a merge would have to rewrite those too. A consumer reading the
-    wire at two ports is skipped, because the rules take one port.
-    '''
-    subgraphs = graph._subgraphs
-    # Every wire's mergeable readers and the ports they read it at, found in one walk
-    # over the scope. Asking each producer against each sibling instead costs the
-    # square of the scope for every merge, and an unrolled loop has thousands of both.
-    readers: dict[hg.HypergraphObject, dict[int, list[int]]] = {}
-    for j, consumer in enumerate(subgraphs):
-        if not _mergeable(consumer):
-            continue
-        for p, obj in enumerate(consumer.dom):
-            readers.setdefault(obj, {}).setdefault(j, []).append(p)
-    for i, producer in enumerate(subgraphs):
-        if not _mergeable(producer) or len(producer.cod) != 1:
-            continue
-        for j, ports in readers.get(producer.cod[0], {}).items():
-            if i != j and len(ports) == 1:
-                yield i, j, ports[0]
-
-
-def _merge_pair(
-    graph: hg.Multigraph,
-    producer_index: int,
-    consumer_index: int,
+def _merged_subgraph(
+    producer: hg.HypergraphRoot,
+    consumer: hg.HypergraphRoot,
     port: int,
     rules: tuple[MergeRule, ...],
-    uses: Counter,
-) -> hg.Multigraph | None:
-    '''The consumer rewritten by the first rule that takes the pair, or `None`.
-
-    The producer is removed when the consumer was its only reader. Otherwise it stays,
-    still read by the others, and the consumer now reads the producer's input directly.
-    '''
-    subgraphs = graph._subgraphs
-    producer = subgraphs[producer_index]
-    consumer = subgraphs[consumer_index]
+) -> hg.Hypergraph | None:
+    '''The subgraph that replaces the consumer under the first rule that takes the pair,
+    or `None`.'''
     for rule in rules:
         answer = rule(producer.wraps, consumer.wraps, port)
         if answer is None:
             continue
         merged, order = (answer if isinstance(answer, tuple)
                          else (answer, None))
-        udom = (*(obj for obj in consumer.dom[:port]),
-                *(obj for obj in producer.dom),
-                *(obj for obj in consumer.dom[port + 1:]))
+        udom = (*consumer.dom[:port], *producer.dom, *consumer.dom[port + 1:])
         if order is not None:
             udom = tuple(udom[index] for index in order)
         if len(tuple(merged.dom())) != len(udom):
             raise ValueError(
                 f'{getattr(rule, "__name__", rule)}: merged domain is '
                 f'{len(tuple(merged.dom()))} wires, expected {len(udom)}')
-        root = hg.HypergraphRoot.template(
-            merged, udom, tuple(obj for obj in consumer.cod))
-        is_last_reader = uses[producer.cod[0]] == 1
-        rebuilt = tuple(
-            root if k == consumer_index else subgraph
-            for k, subgraph in enumerate(subgraphs)
-            if k != producer_index or not is_last_reader)
-        return hg.Multigraph.template(graph.dom, graph.cod, rebuilt)
+        return hg.HypergraphRoot.template(merged, udom, tuple(consumer.cod))
     return None
 
 
-type MergeStep = Callable[
-    [hg.Multigraph, tuple[MergeRule, ...], Counter], hg.Multigraph | None]
+type ReaderCountTest = Callable[[int], bool]
 
 
-def _merge_here(
-    graph: hg.Multigraph,
-    rules: tuple[MergeRule, ...],
-    uses: Counter,
-) -> hg.Multigraph | None:
-    '''One merge between two siblings whose wire is read once, or `None`.'''
-    for i, j, port in _reading_pairs(graph):
-        if uses[graph._subgraphs[i].cod[0]] != 1:
-            continue
-        rebuilt = _merge_pair(graph, i, j, port, rules, uses)
-        if rebuilt is not None:
-            return rebuilt
-    return None
+def _is_read_once(reader_count: int) -> bool:
+    return reader_count == 1
 
 
-def _merge_into_each_here(
-    graph: hg.Multigraph,
-    rules: tuple[MergeRule, ...],
-    uses: Counter,
-) -> hg.Multigraph | None:
-    '''One merge between two siblings, however many readers the wire has, or
-    `None`.'''
-    for i, j, port in _reading_pairs(graph):
-        rebuilt = _merge_pair(graph, i, j, port, rules, uses)
-        if rebuilt is not None:
-            return rebuilt
-    return None
+def _is_read(reader_count: int) -> bool:
+    return True
 
 
-def _merge_once(
-    graph: hg.Hypergraph,
-    rules: tuple[MergeRule, ...],
-    uses: Counter,
-    merge_here: MergeStep,
-) -> hg.Hypergraph | None:
-    '''The first merge anywhere in `graph`, innermost scopes first.'''
-    match graph:
-        case hg.HypergraphRoot():
-            return None
-        case hg.HypergraphBlock(body=body):
-            rebuilt = _merge_once(body, rules, uses, merge_here)
-            if rebuilt is None:
-                return None
-            return hg.HypergraphBlock.template(rebuilt, graph.block_tag)
-        case hg.Multigraph():
-            for i, subgraph in enumerate(graph._subgraphs):
-                rebuilt = _merge_once(subgraph, rules, uses, merge_here)
-                if rebuilt is not None:
-                    return hg.Multigraph.template(
-                        graph.dom, graph.cod,
-                        tuple(rebuilt if k == i else sub
-                              for k, sub in enumerate(graph._subgraphs)))
-            return merge_here(graph, rules, uses)
-    raise NotImplementedError(f'cannot rewrite {type(graph).__name__}')
+@dataclass(eq=False)
+class _Scope:
+    '''The subgraphs of one `Multigraph` while producers are merged into consumers.
+
+    `subgraphs` holds the current subgraph at every position of the scope, and `None`
+    at the position of a producer that was merged into its last reader. `readers` maps a
+    wire to the mergeable roots reading it, as the position of each and the ports it
+    reads the wire at. `producers` maps a wire to the position of the mergeable root
+    whose only output is that wire. `enclosing` lists the scope's own graph and then
+    every graph containing it, the innermost first. `order` is the place of the scope
+    among all scopes when inner scopes are visited before the scope containing them.
+    '''
+    order: int
+    enclosing: tuple[hg.Hypergraph, ...]
+    subgraphs: list[hg.Hypergraph | None]
+    readers: dict[hg.HypergraphObject, dict[int, list[int]]] = field(default_factory=dict)
+    producers: dict[hg.HypergraphObject, int] = field(default_factory=dict)
+
+    def connect(self, position: int) -> None:
+        subgraph = self.subgraphs[position]
+        if not _mergeable(subgraph):
+            return
+        for port, wire in enumerate(subgraph.dom):
+            self.readers.setdefault(wire, {}).setdefault(position, []).append(port)
+        if len(subgraph.cod) == 1:
+            self.producers[subgraph.cod[0]] = position
+
+    def disconnect(self, position: int) -> None:
+        subgraph = self.subgraphs[position]
+        if not _mergeable(subgraph):
+            return
+        for wire in set(subgraph.dom):
+            del self.readers[wire][position]
+        if len(subgraph.cod) == 1:
+            del self.producers[subgraph.cod[0]]
+
+
+class _MergeSearch:
+    '''The merges of a graph, found one at a time in a fixed order.
+
+    A pair is a producer and a consumer that are siblings in one scope, joined by a wire
+    the consumer reads at one port. Pairs are ordered by scope, inner scopes before the
+    scope containing them, then by the position of the producer, then by the position of
+    the consumer. `merge_next_pair` applies the first pair in that order that a rule
+    takes.
+
+    A rule answers from the two morphisms and the port, so a pair that declined every
+    rule declines them again while both of its subgraphs stand. The search therefore
+    keeps the use counts and every scope's wires up to date as merges land, and offers
+    the rules only the pairs of the subgraph the last merge wrote. A pair whose wire has
+    a reader count the search does not admit waits on that wire and is offered again
+    when the count changes.
+    '''
+
+    def __init__(
+        self,
+        graph: hg.Hypergraph,
+        rules: tuple[MergeRule, ...],
+        admits_reader_count: ReaderCountTest,
+    ) -> None:
+        self.rules = rules
+        self.admits_reader_count = admits_reader_count
+        self.uses: Counter = Counter()
+        _count_uses(graph, self.uses)
+        self.scopes: list[_Scope] = []
+        self.scope_of_graph: dict[int, _Scope] = {}
+        self.graphs_holding_a_merge: set[int] = set()
+        self.offers: list[tuple] = []
+        self.waiting: dict[hg.HypergraphObject, list[tuple]] = {}
+        self.offer_count = itertools.count()
+        self._register_scopes(graph, ())
+        for scope in self.scopes:
+            for wire, producer_position in scope.producers.items():
+                for consumer_position in scope.readers.get(wire, ()):
+                    self._offer(scope, producer_position, consumer_position)
+
+    def _register_scopes(
+        self, graph: hg.Hypergraph, enclosing: tuple[hg.Hypergraph, ...],
+    ) -> None:
+        match graph:
+            case hg.HypergraphRoot():
+                return
+            case hg.HypergraphBlock(body=body):
+                self._register_scopes(body, (graph, *enclosing))
+            case hg.Multigraph():
+                containing = (graph, *enclosing)
+                for subgraph in graph._subgraphs:
+                    self._register_scopes(subgraph, containing)
+                scope = _Scope(order=len(self.scopes), enclosing=containing,
+                               subgraphs=list(graph._subgraphs))
+                for position in range(len(scope.subgraphs)):
+                    scope.connect(position)
+                self.scopes.append(scope)
+                self.scope_of_graph[id(graph)] = scope
+            case _:
+                raise NotImplementedError(f'cannot rewrite {type(graph).__name__}')
+
+    def _offer(self, scope: _Scope, producer_position: int, consumer_position: int) -> None:
+        heapq.heappush(self.offers, (
+            scope.order, producer_position, consumer_position, next(self.offer_count),
+            scope.subgraphs[producer_position], scope.subgraphs[consumer_position]))
+
+    def merge_next_pair(self) -> bool:
+        '''Whether a pair took a rule. The first such pair in the order of the search is
+        merged.'''
+        while self.offers:
+            offer = heapq.heappop(self.offers)
+            order, producer_position, consumer_position, _, producer, consumer = offer
+            scope = self.scopes[order]
+            if (producer_position == consumer_position
+                    or scope.subgraphs[producer_position] is not producer
+                    or scope.subgraphs[consumer_position] is not consumer):
+                continue
+            wire = producer.cod[0]
+            ports = scope.readers[wire][consumer_position]
+            if len(ports) != 1:
+                continue
+            if not self.admits_reader_count(self.uses[wire]):
+                self.waiting.setdefault(wire, []).append(offer)
+                continue
+            merged = _merged_subgraph(producer, consumer, ports[0], self.rules)
+            if merged is None:
+                continue
+            self._replace_consumer(scope, producer_position, consumer_position, merged)
+            return True
+        return False
+
+    def _replace_consumer(
+        self,
+        scope: _Scope,
+        producer_position: int,
+        consumer_position: int,
+        merged: hg.Hypergraph,
+    ) -> None:
+        '''`merged` written where the consumer stood. The producer is removed when the
+        consumer was its only reader. Otherwise it stays, still read by the others.'''
+        producer = scope.subgraphs[producer_position]
+        consumer = scope.subgraphs[consumer_position]
+        change: Counter = Counter()
+        _count_uses(merged, change, is_outermost=False)
+        change.subtract(consumer.dom)
+        scope.disconnect(consumer_position)
+        if self.uses[producer.cod[0]] == 1:
+            change.subtract(producer.dom)
+            scope.disconnect(producer_position)
+            scope.subgraphs[producer_position] = None
+        scope.subgraphs[consumer_position] = merged
+        scope.connect(consumer_position)
+        self._recount(change)
+        self._record_merge_in(scope)
+        self._offer_pairs_of(scope, consumer_position)
+
+    def _recount(self, change: Counter) -> None:
+        for wire, difference in change.items():
+            if difference:
+                self.uses[wire] += difference
+                for offer in self.waiting.pop(wire, ()):
+                    heapq.heappush(self.offers, offer)
+
+    def _record_merge_in(self, scope: _Scope) -> None:
+        '''Every graph around the merge is marked for rebuilding. A rebuilt block lists
+        each wire of its domain once, so the wires it listed twice lose a use.'''
+        for graph in scope.enclosing:
+            if id(graph) in self.graphs_holding_a_merge:
+                return
+            self.graphs_holding_a_merge.add(id(graph))
+            if isinstance(graph, hg.HypergraphBlock):
+                change: Counter = Counter(util.unique_tuple(graph.body.dom))
+                change.subtract(graph.dom)
+                self._recount(change)
+
+    def _offer_pairs_of(self, scope: _Scope, position: int) -> None:
+        subgraph = scope.subgraphs[position]
+        if not _mergeable(subgraph):
+            return
+        for wire in dict.fromkeys(subgraph.dom):
+            if wire in scope.producers:
+                self._offer(scope, scope.producers[wire], position)
+        if len(subgraph.cod) == 1:
+            for consumer_position in scope.readers.get(subgraph.cod[0], ()):
+                self._offer(scope, position, consumer_position)
+
+    def rebuilt[L, M: cat.Morphism](self, graph: hg.Hypergraph[L, M]) -> hg.Hypergraph[L, M]:
+        '''`graph` with every merge applied. A graph holding no merge is returned as the
+        same object.'''
+        if id(graph) not in self.graphs_holding_a_merge:
+            return graph
+        match graph:
+            case hg.HypergraphBlock(body=body):
+                return hg.HypergraphBlock.template(self.rebuilt(body), graph.block_tag)
+            case hg.Multigraph():
+                return hg.Multigraph.template(graph.dom, graph.cod, tuple(
+                    self.rebuilt(subgraph)
+                    for subgraph in self.scope_of_graph[id(graph)].subgraphs
+                    if subgraph is not None))
+        raise NotImplementedError(f'cannot rewrite {type(graph).__name__}')
 
 
 def _merge_to_fixed_point[L, M: cat.Morphism](
     graph: hg.Hypergraph[L, M],
     rules: tuple[MergeRule, ...],
-    merge_here: MergeStep,
+    admits_reader_count: ReaderCountTest,
 ) -> hg.Hypergraph[L, M]:
-    '''One merge per pass, with the use counts recomputed each time, until no pair
-    takes a rule.
+    '''One merge at a time until no pair takes a rule.
 
     A merge removes a consumer, so what was read twice before it can be read once
     after, and a chain collapses from the far end inwards. The graph is returned
     as the same object when nothing merged.
     '''
+    search = _MergeSearch(graph, rules, admits_reader_count)
     for _ in range(MERGE_LIMIT):
-        uses: Counter = Counter()
-        _count_uses(graph, uses)
-        rebuilt = _merge_once(graph, rules, uses, merge_here)
-        if rebuilt is None:
-            return graph
-        graph = rebuilt
+        if not search.merge_next_pair():
+            return search.rebuilt(graph)
     raise RuntimeError(
         f'{MERGE_LIMIT} merges without reaching a fixed point - a rule is '
         'probably undoing another one')
@@ -273,7 +377,7 @@ def merge_producers_into_consumers_in_graph[L, M: cat.Morphism](
 ) -> hg.Hypergraph[L, M]:
     '''Every producer read once by one `Broadcasted`, merged into that consumer by
     the first of `rules` that accepts the pair, until no pair takes one.'''
-    return _merge_to_fixed_point(graph, rules, _merge_here)
+    return _merge_to_fixed_point(graph, rules, _is_read_once)
 
 
 def merge_producers_into_every_consumer_in_graph[L, M: cat.Morphism](
@@ -289,7 +393,7 @@ def merge_producers_into_every_consumer_in_graph[L, M: cat.Morphism](
     graph all keep the original in place. Offer this search a rule only where
     the copies cost nothing, as `reindexing_absorption.absorb_nodes` does.
     '''
-    return _merge_to_fixed_point(graph, rules, _merge_into_each_here)
+    return _merge_to_fixed_point(graph, rules, _is_read)
 
 
 def merge_producers_into_consumers[L, M: cat.Morphism](

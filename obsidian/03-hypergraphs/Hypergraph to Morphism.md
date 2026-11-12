@@ -191,6 +191,14 @@ nor at an edge raises a `ValueError`, because the walk emits every graph reachab
 codomain and a consumer of the sink's domain is therefore always built. On a graph with no
 sink none of this fires.
 
+Edge injection is restricted to the sinks classified for that edge by
+`make_root_branch`. Sharing one carried input is insufficient: a sink that also reads
+an internal value must wait for the column that produces that value. Interior columns
+retain unrestricted injection and add the complete injected domain to their frontier.
+[The edge-sink validator](../../graphs/validate_edge_sinks.py) checks operation counts,
+numerical outputs and every saved tape value for mixed domains, leading and final
+saves, and saves whose producer reads no input.
+
 A source, meaning a `Para.Grab`, needs none of it, because `exclusive` already emits one as
 late as possible, one stack to the left of its last-scheduled consumer. A diagram therefore
 shows each save beside the first reader of the value and each load at its use. An earlier

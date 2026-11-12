@@ -209,10 +209,14 @@ class SinkPlacement:
         for node in util.unique_tuple(branch.left_nodes()):
             self.waiting.setdefault(node, []).append(sink)
 
-    def claim(self, node: hg.HypergraphObject) -> fd.Prod[Branch]:
+    def claim(
+        self, node: hg.HypergraphObject,
+        allowed: set[hg.Hypergraph] | None = None,
+    ) -> fd.Prod[Branch]:
         sinks = tuple(
             sink for sink in self.waiting.get(node, ())
-            if sink not in self.claimed)
+            if sink not in self.claimed
+            and (allowed is None or sink in allowed))
         self.claimed.update(sinks)
         return tuple(self.branches[sink] for sink in sinks)
 
@@ -224,6 +228,7 @@ class SinkPlacement:
 def inject_waiting_sinks(
     branches: fd.Prod[Branch],
     placement: SinkPlacement,
+    allowed: set[hg.Hypergraph] | None = None,
 ) -> fd.Prod[Branch]:
     '''`branches` with each waiting sink inserted after the first branch that
     consumes a node of its domain. An injected branch is scanned in turn, so a
@@ -235,7 +240,7 @@ def inject_waiting_sinks(
         branch = queue.pop(0)
         result.append(branch)
         injected = util.concat(
-            placement.claim(node)
+            placement.claim(node, allowed)
             for node in util.unique_tuple(branch.left_nodes()))
         queue = [*injected, *queue]
     return tuple(result)
@@ -510,7 +515,9 @@ def edge_column(
     it, because the sink is then the wire's last reader.'''
     identities = tuple(
         IdentityBranch.from_node(node, analysis) for node in carried)
-    injected = inject_waiting_sinks(identities, placement)
+    # Edge eligibility is established by make_root_branch. Sharing one input
+    # does not make a sink eligible when another operand is produced later.
+    injected = inject_waiting_sinks(identities, placement, set(sinks))
     taken = {
         node for branch in injected
         if not isinstance(branch, IdentityBranch)

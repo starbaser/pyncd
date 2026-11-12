@@ -1,10 +1,9 @@
-# Private upstream mirror
+# Owner-reviewed PyNCD fork
 
-The [mirror ownership policy](AGENTS.md#private-upstream-mirror) governs this
-checkout. After the initial three reviewed fixes and ownership guidance, only
-official upstream commits may be merged. The private host and projects-directory
-location do not authorise local edits. The instructions below describe upstream
-conventions within that boundary.
+The [fork ownership policy](AGENTS.md#the-owners-pyncd-fork) governs this checkout.
+Individual changes require the owner's review before landing. The repository's
+location does not authorise edits, commits or publication. The instructions below
+describe conventions within that policy.
 
 # Working in this repository
 
